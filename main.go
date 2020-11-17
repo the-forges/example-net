@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
+
 )
 
 var conns = make(map[int64]net.Conn)
@@ -35,8 +36,8 @@ func main() {
 		conns[connID] = conn
 		log.Printf("%v connected. You have %d connections.", connID, len(conns))
 
-		go userHandler(connID, conn)
 		go connectionHandler(connID, conn)
+		
 	}
 }
 
@@ -54,10 +55,10 @@ func broadcastMessage(msg string) {
 	}
 }
 
-func userHandler(id int64, c net.Conn) {
+func createUser(id int64, c net.Conn) {
 	userbuf := bufio.NewReader(c)
 	writeMessage(c, "Enter username")
-	reqbuf, err := userbuf.ReadBytes('\n')
+	reqbuf, err := userbuf.ReadBytes(byte('\n'))
 	if err != nil {
 		if err.Error() != "EOF" {
 			log.Printf("error: %s", err)
@@ -68,24 +69,42 @@ func userHandler(id int64, c net.Conn) {
 	userName = strings.TrimSpace(userName)
 	user := User{ID: id, Conn: c, UserName: userName}
 	users[id] = user
-	writeMessage(c, fmt.Sprintf("Username: %s, ID: %d was created.", user.UserName, user.ID))
+	
 	
 }
 
-func connectionHandler(id int64, c net.Conn) {
-	buf := bufio.NewReader(c)
+func printUserInfo(id int64, c net.Conn) {
+	writeMessage(c, fmt.Sprintf("Username: %s, ID: %d was created.", users[id].UserName, users[id].ID))
+}
 
-	for {
-		req, err := buf.ReadBytes(byte('\n'))
+func printAllUserInfo(id int64, c net.Conn) {
+	for _, user := range users {
+		writeMessage(c, fmt.Sprintf("Username: %s, ID: %d was created.", user.UserName, user.ID))
+	}
+}
+
+func userCommands(id int64, c net.Conn) {
+	writeMessage(c, "Enter command")
+	buf := bufio.NewReader(c)
+	req, err := buf.ReadBytes(byte('\n'))
 		if err != nil {
 			if err.Error() != "EOF" {
 				log.Printf("error: %s", err)
 			}
-			break
+			return
 		}
 		body := string(req)
-		msg := fmt.Sprintf("%d wrote %s", id, body)
-		broadcastMessage(msg)
+		commandParser(id, body, c)
+		// msg := fmt.Sprintf("%s wrote %s", users[id].UserName, body)
+		// broadcastMessage(msg)
+}
+
+func connectionHandler(id int64, c net.Conn) {
+	body := ""
+
+	for {
+		createUser(id, c)
+		userCommands(id,c)
 		body = strings.TrimSpace(body)
 		if body == "quit" {
 			break
@@ -98,4 +117,20 @@ func connectionHandler(id int64, c net.Conn) {
 }
 
 // commandParser - Parse commands and call a function don't broadcast commands but text
+func commandParser(id int64, cmd string, c net.Conn) {
+	switch cmd {
+	case "":
+		return
+	case "/printUserInfo":
+		printUserInfo(id,c)
+	case "/printAllUserInfo":
+		printAllUserInfo(id, c)
+	case "/broadcastMessage":
+		broadcastMessage(fmt.Sprintf("%s says Hello!", users[id].UserName))
+	case "/personalMessage":
+		
+	case "/quit":
+		return
+	}
+}
 // Build user profile
