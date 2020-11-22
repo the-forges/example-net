@@ -1,3 +1,3 @@
-module the-forges/example-net
+module github.com/the-forges/example-net
 
 go 1.15

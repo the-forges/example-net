@@ -5,13 +5,19 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
+
+	"github.com/the-forges/example-net/cmdparser"
+	"github.com/the-forges/example-net/handler"
+	"github.com/the-forges/example-net/internal"
 )
 
-var conns = make(map[int64]net.Conn)
+var streams = make(map[int64]cmdparser.Stream)
 
 func main() {
+	router := cmdparser.NewRouter()
+	router.HandleFunc("/quit", handler.QuitHandler)
+
 	server, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatal(err)
@@ -23,13 +29,13 @@ func main() {
 			log.Println(err)
 			return
 		}
-		connID := time.Now().Unix()
-		conns[connID] = conn
-		log.Printf("%v connected. You have %d connections.", connID, len(conns))
-		go func(id int64, c net.Conn) {
-			buf := bufio.NewReader(c)
+		stream := cmdparser.NewStream(conn, time.Now().Unix())
+		streams[stream.ID().(int64)] = stream
+		log.Printf("%v connected. You have %d connections.", stream.ID(), len(streams))
+		go func(s internal.Conn) {
+			buf := bufio.NewReader(s)
 			for {
-				fmt.Fprintf(c, "> ")
+				fmt.Fprintf(s, "> ")
 				req, err := buf.ReadBytes(byte('\n'))
 				if err != nil {
 					if err.Error() != "EOF" {
@@ -38,19 +44,22 @@ func main() {
 					break
 				}
 				body := string(req)
-				writeMessage(c, body)
-				body = strings.TrimSpace(body)
-				if body == "quit"{
-					break
+				writeMessage(s, body)
+				if r := router.ParseAndCall(internal.Conn(s), body); !r.Ok() {
+					log.Printf("[%s/%d]\n", r.Error(), s.ID())
+					writeMessage(
+						s,
+						fmt.Sprintf("There was an problem with your command: %s", r.Error()),
+					)
 				}
 			}
-			c.Close()
-			delete(conns, id)
-			log.Printf("%v disconnected. You have %d connections.", id, len(conns))
-		}(connID, conn)
+			s.Close()
+			delete(streams, s.ID().(int64))
+			log.Printf("%v disconnected. You have %d connections.", s.ID(), len(streams))
+		}(stream)
 	}
 }
 
 func writeMessage(c net.Conn, msg string) {
-	fmt.Fprintf(c, "You wrote: %s\n", msg)
+	fmt.Fprintf(c, "%s\n", msg)
 }

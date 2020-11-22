@@ -4,7 +4,8 @@
 *.dll
 *.so
 *.dylib
-example-net # Default binary on *nix system
+# Default binary on *nix system
+example-net
 
 # Test binary, built with `go test -c`
 *.test
