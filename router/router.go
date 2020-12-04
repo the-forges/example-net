@@ -1,12 +1,14 @@
 package router
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"net"
 	"strings"
 	"the-forges/example-net/model"
+	"the-forges/example-net/util"
 	"time"
 )
 
@@ -16,10 +18,9 @@ import (
 //return errors where necessary
 
 var routes = make(map[string]Handler, 0)
-var users = make(map[int64]model.User)
+var users = make(map[int64]*model.User)
 
-
-type Handler func(context.Context, net.Conn, ...string) (bool, error)
+type Handler func(context.Context, net.Conn, ...string) error
 
 func HandleFunc(command string, handler Handler) {
 	command = strings.TrimSpace(command)
@@ -44,24 +45,23 @@ func Listen(server net.Listener) error {
 			log.Println(err)
 			return err
 		}
-		
+
 		go connectionHandler(conn)
-		
-		// conns[connID] = conn
-		// log.Printf("%v connected. You have %d connections.", connID, len(conns))
-
-
 	}
 }
 
 // connection handler
 func connectionHandler(conn net.Conn) {
-	// TODO: Check from in may for pre exiting id (loop through map)
-	connID := time.Now().Unix()
-	user := model.User{ID: connID, Conn: conn}
-	users[connID] = user
+	id := time.Now().Unix()
+	user := &model.User{ID: id, Conn: conn}
+	users[id] = user
+	connected := true
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, util.CtxID, id)
+	ctx = context.WithValue(ctx, util.CtxUsers, &users)
+	ctx = context.WithValue(ctx, util.CtxConnected, &connected)
 	for {
-		writeMessage(conn, "Enter command")
+		util.WriteMessage(conn, "Enter command")
 		buf := bufio.NewReader(conn)
 		req, err := buf.ReadBytes(byte('\n'))
 		if err != nil {
@@ -71,10 +71,17 @@ func connectionHandler(conn net.Conn) {
 			return
 		}
 		body := string(req)
-		if !commandParser(id, body, conn) {
+		h, err := Parse(body)
+		if err != nil {
+			util.WriteMessage(conn, err.Error())
+			return
+		}
+		if err := h(ctx, conn); err != nil {
+			util.WriteMessage(conn, err.Error())
+		}
+		if !connected {
 			break
 		}
-
 	}
-	log.Printf("%v disconnected. You have %d connections.", id, len(conns))
+	log.Printf("%v disconnected. You have %d connections.", id, len(users))
 }

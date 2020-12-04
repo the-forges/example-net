@@ -6,33 +6,34 @@ import (
 	"net"
 	"strings"
 	"the-forges/example-net/model"
+	"the-forges/example-net/util"
 )
 
-func UpdateUserNameHandler(ctx context.Context, conn net.Conn, args ...string) (bool, error){
+func UpdateUserNameHandler(ctx context.Context, conn net.Conn, args ...string) error {
 	if len(args) <= 0 {
-		return false, fmt.Errorf("missing name argument")
+		return fmt.Errorf("missing name argument")
 	}
 	users, err := usersFromContext(ctx)
 	if err != nil {
-		return false, err
+		return err
 	}
-	id, ok := ctx.Value("ID").(int)
+	id, ok := ctx.Value(util.CtxID).(int)
 	if !ok {
-		return false, fmt.Errorf("cannot find ID")
+		return fmt.Errorf("cannot find ID")
 	}
 
 	user, ok := (*users)[id]
 	if !ok {
-		return false, fmt.Errorf("cannot find user")
+		return fmt.Errorf("cannot find user")
 	}
 
 	user.UserName = strings.Join(args, " ")
-	return true, nil
+	return nil
 }
 
-func usersFromContext(ctx context.Context) (*map[int]*model.User, error){
-	users, ok := ctx.Value("Users").(*map[int]*model.User)
-	if !ok || users == nil{
+func usersFromContext(ctx context.Context) (*map[int]*model.User, error) {
+	users, ok := ctx.Value(util.CtxUsers).(*map[int]*model.User)
+	if !ok || users == nil {
 		return nil, fmt.Errorf("cannot find users")
 	}
 

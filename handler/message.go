@@ -5,26 +5,22 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"the-forges/example-net/model"
+	"the-forges/example-net/util"
 )
 
-func writeMessage(c net.Conn, msg string) {
-	fmt.Fprintf(c, "%s\n", msg)
-}
-
-func BroadcastMessageHandler(ctx context.Context, conn net.Conn, args ...string) (bool, error){
+func BroadcastMessageHandler(ctx context.Context, conn net.Conn, args ...string) error {
 	if len(args) == 0 {
-		return false, fmt.Errorf("empty message")
+		return fmt.Errorf("empty message")
 	}
 
 	users, err := usersFromContext(ctx)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	for _, user := range  users{
-		writeMessage(user.Conn, strings.Join(args, " "))
+	for _, user := range users {
+		util.WriteMessage(user.Conn, strings.Join(args, " "))
 	}
 
-	return true, nil
+	return nil
 }
