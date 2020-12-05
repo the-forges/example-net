@@ -1,8 +1,9 @@
-package Handler
+package handler
 
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"the-forges/example-net/model"
@@ -34,6 +35,7 @@ func UpdateUserNameHandler(ctx context.Context, conn net.Conn, args ...string) e
 func usersFromContext(ctx context.Context) (*map[int]*model.User, error) {
 	users, ok := ctx.Value(util.CtxUsers).(*map[int]*model.User)
 	if !ok || users == nil {
+		log.Println(ok, users)
 		return nil, fmt.Errorf("cannot find users")
 	}
 

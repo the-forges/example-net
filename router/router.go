@@ -17,8 +17,15 @@ import (
 //execute enpoint handler if command is found
 //return errors where necessary
 
-var routes = make(map[string]Handler, 0)
-var users = make(map[int64]*model.User)
+var (
+	routes map[string]Handler
+	users  map[int64]*model.User
+)
+
+func init() {
+	routes = make(map[string]Handler, 0)
+	users = make(map[int64]*model.User)
+}
 
 type Handler func(context.Context, net.Conn, ...string) error
 
@@ -52,14 +59,19 @@ func Listen(server net.Listener) error {
 
 // connection handler
 func connectionHandler(conn net.Conn) {
+	if users == nil {
+		users = make(map[int64]*model.User)
+	}
 	id := time.Now().Unix()
 	user := &model.User{ID: id, Conn: conn}
 	users[id] = user
 	connected := true
+	log.Printf("id: %d, user: %#v, users: %#v, connected: \v", id, user, users, connected)
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, util.CtxID, id)
 	ctx = context.WithValue(ctx, util.CtxUsers, &users)
 	ctx = context.WithValue(ctx, util.CtxConnected, &connected)
+	log.Printf("ctx: %#v", ctx)
 	for {
 		util.WriteMessage(conn, "Enter command")
 		buf := bufio.NewReader(conn)

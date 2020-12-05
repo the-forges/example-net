@@ -5,10 +5,11 @@ import (
 	"net"
 	"the-forges/example-net/handler"
 	"the-forges/example-net/router"
+	_ "the-forges/example-net/router"
 )
 
 func main() {
-	router.HandleFunc("/name :name", handler.ChangeUserNameHandler)
+	router.HandleFunc("/name :name", handler.UpdateUserNameHandler)
 	router.HandleFunc("/quit", handler.QuitHandler)
 	router.HandleFunc("", handler.BroadcastMessageHandler)
 	server, err := net.Listen("tcp", ":8080")

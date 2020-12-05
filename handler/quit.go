@@ -17,7 +17,7 @@ func QuitHandler(ctx context.Context, conn net.Conn, args ...string) error {
 		return fmt.Errorf("missing connection ID in context")
 	}
 	user, ok := (*users)[id]
-	if !ok || user.nil {
+	if !ok || user == nil {
 		return fmt.Errorf("cannot find user")
 	}
 	connected, ok := ctx.Value(util.CtxConnected).(*bool)
@@ -27,8 +27,8 @@ func QuitHandler(ctx context.Context, conn net.Conn, args ...string) error {
 	if err := conn.Close(); err != nil {
 		return err
 	}
-	delete(users, id)
-	connected = false
+	delete(*users, id)
+	*connected = false
 	// broadcastMessage(fmt.Sprintf("Connection: %v, ended.", id))
 
 	return nil
