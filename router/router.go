@@ -12,20 +12,10 @@ import (
 	"time"
 )
 
-//TODO add command
-//parse command
-//execute enpoint handler if command is found
-//return errors where necessary
-
 var (
-	routes map[string]Handler
-	users  map[int64]*model.User
-)
-
-func init() {
 	routes = make(map[string]Handler, 0)
-	users = make(map[int64]*model.User)
-}
+	users  = model.NewUsersMap()
+)
 
 type Handler func(context.Context, net.Conn, ...string) error
 
@@ -59,17 +49,14 @@ func Listen(server net.Listener) error {
 
 // connection handler
 func connectionHandler(conn net.Conn) {
-	if users == nil {
-		users = make(map[int64]*model.User)
-	}
 	id := time.Now().Unix()
 	user := &model.User{ID: id, Conn: conn}
-	users[id] = user
+	users = users.RecieveUser(user)
 	connected := true
-	log.Printf("id: %d, user: %#v, users: %#v, connected: \v", id, user, users, connected)
+	log.Printf("id: %d, user: %#v, users: %#v, connected: %v", id, user, users, connected)
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, util.CtxID, id)
-	ctx = context.WithValue(ctx, util.CtxUsers, &users)
+	ctx = context.WithValue(ctx, util.CtxUsers, users)
 	ctx = context.WithValue(ctx, util.CtxConnected, &connected)
 	log.Printf("ctx: %#v", ctx)
 	for {
@@ -95,5 +82,5 @@ func connectionHandler(conn net.Conn) {
 			break
 		}
 	}
-	log.Printf("%v disconnected. You have %d connections.", id, len(users))
+	log.Printf("%v disconnected. You have %d connections.", id, users.Len())
 }

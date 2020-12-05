@@ -18,7 +18,7 @@ func BroadcastMessageHandler(ctx context.Context, conn net.Conn, args ...string)
 		return err
 	}
 
-	for _, user := range *users {
+	for _, user := range users.Iter() {
 		util.WriteMessage(user.Conn, strings.Join(args, " "))
 	}
 

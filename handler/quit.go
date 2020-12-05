@@ -12,13 +12,12 @@ func QuitHandler(ctx context.Context, conn net.Conn, args ...string) error {
 	if err != nil {
 		return err
 	}
-	id, ok := ctx.Value(util.CtxID).(int)
+	id, ok := ctx.Value(util.CtxID).(int64)
 	if !ok || id == 0 {
 		return fmt.Errorf("missing connection ID in context")
 	}
-	user, ok := (*users)[id]
-	if !ok || user == nil {
-		return fmt.Errorf("cannot find user")
+	if _, err = users.FindUser(id); err != nil {
+		return err
 	}
 	connected, ok := ctx.Value(util.CtxConnected).(*bool)
 	if !ok {
@@ -27,9 +26,15 @@ func QuitHandler(ctx context.Context, conn net.Conn, args ...string) error {
 	if err := conn.Close(); err != nil {
 		return err
 	}
-	delete(*users, id)
+	// If there is an error, I don't want to write over the current UsersMap
+	// with the returned UsersMap.
+	newusers, err := users.KickUser(id)
+	if err != nil {
+		return err
+	}
+	// Now it's safe to swap the UsersMaps
+	users = newusers
 	*connected = false
 	// broadcastMessage(fmt.Sprintf("Connection: %v, ended.", id))
-
 	return nil
 }
