@@ -19,6 +19,9 @@ func BroadcastMessageHandler(ctx context.Context, conn net.Conn, args ...string)
 	}
 
 	for _, user := range users.Iter() {
+		if user == nil {
+			continue
+		}
 		util.WriteMessage(user.Conn, strings.Join(args, " "))
 	}
 

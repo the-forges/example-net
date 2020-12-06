@@ -11,7 +11,7 @@ import (
 func main() {
 	router.HandleFunc("/name :name", handler.UpdateUserNameHandler)
 	router.HandleFunc("/quit", handler.QuitHandler)
-	router.HandleFunc("", handler.BroadcastMessageHandler)
+	router.DefaultFunc(handler.BroadcastMessageHandler)
 	server, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatal(err)
