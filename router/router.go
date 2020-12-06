@@ -12,36 +12,42 @@ import (
 	"time"
 )
 
-//TODO add command
-//parse command
-//execute enpoint handler if command is found
-//return errors where necessary
-
 var (
-	routes map[string]Handler
-	users  map[int64]*model.User
+	routes       = make(map[string]Handler, 0)
+	defaultRoute Handler
+	users        = model.NewUsersMap()
 )
-
-func init() {
-	routes = make(map[string]Handler, 0)
-	users = make(map[int64]*model.User)
-}
 
 type Handler func(context.Context, net.Conn, ...string) error
 
-func HandleFunc(command string, handler Handler) {
+func HandleFunc(command string, h Handler) {
 	command = strings.TrimSpace(command)
-	routes[command] = handler
+	routes[command] = h
+}
+
+func DefaultFunc(h Handler) {
+	defaultRoute = h
 }
 
 // Parse - takes in command checks map of cmds to see if there is one present
-func Parse(command string) (Handler, error) {
+func Parse(command string) (Handler, []string, error) {
 	command = strings.TrimSpace(command)
-	handler, ok := routes[command]
-	if !ok {
-		return nil, fmt.Errorf("cannot find command")
+	args := make([]string, 0)
+	if strings.HasPrefix(command, "/") {
+		parts := strings.SplitN(command, " ", 2)
+		args = append(args, parts[1:]...)
+	} else {
+		args = append(args, command)
 	}
-	return handler, nil
+
+	h, ok := routes[command]
+	if !ok {
+		if defaultRoute != nil {
+			return defaultRoute, args, nil
+		}
+		return nil, args, fmt.Errorf("cannot find command")
+	}
+	return h, args, nil
 }
 
 func Listen(server net.Listener) error {
@@ -59,17 +65,14 @@ func Listen(server net.Listener) error {
 
 // connection handler
 func connectionHandler(conn net.Conn) {
-	if users == nil {
-		users = make(map[int64]*model.User)
-	}
 	id := time.Now().Unix()
 	user := &model.User{ID: id, Conn: conn}
-	users[id] = user
+	users = users.RecieveUser(user)
 	connected := true
-	log.Printf("id: %d, user: %#v, users: %#v, connected: \v", id, user, users, connected)
+	log.Printf("id: %d, user: %#v, users: %#v, connected: %v", id, user, users, connected)
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, util.CtxID, id)
-	ctx = context.WithValue(ctx, util.CtxUsers, &users)
+	ctx = context.WithValue(ctx, util.CtxUsers, users)
 	ctx = context.WithValue(ctx, util.CtxConnected, &connected)
 	log.Printf("ctx: %#v", ctx)
 	for {
@@ -80,20 +83,20 @@ func connectionHandler(conn net.Conn) {
 			if err.Error() != "EOF" {
 				log.Printf("error: %s", err)
 			}
-			return
+			continue
 		}
 		body := string(req)
-		h, err := Parse(body)
+		h, args, err := Parse(body)
 		if err != nil {
 			util.WriteMessage(conn, err.Error())
-			return
+			continue
 		}
-		if err := h(ctx, conn); err != nil {
+		if err := h(ctx, conn, args...); err != nil {
 			util.WriteMessage(conn, err.Error())
 		}
 		if !connected {
 			break
 		}
 	}
-	log.Printf("%v disconnected. You have %d connections.", id, len(users))
+	log.Printf("%v disconnected. You have %d connections.", id, users.Len())
 }

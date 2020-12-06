@@ -18,24 +18,24 @@ func UpdateUserNameHandler(ctx context.Context, conn net.Conn, args ...string) e
 	if err != nil {
 		return err
 	}
-	id, ok := ctx.Value(util.CtxID).(int)
+	id, ok := ctx.Value(util.CtxID).(int64)
 	if !ok {
 		return fmt.Errorf("cannot find ID")
 	}
 
-	user, ok := (*users)[id]
-	if !ok {
-		return fmt.Errorf("cannot find user")
+	user, err := users.FindUser(id)
+	if err != nil {
+		return err
 	}
 
 	user.UserName = strings.Join(args, " ")
 	return nil
 }
 
-func usersFromContext(ctx context.Context) (*map[int]*model.User, error) {
-	users, ok := ctx.Value(util.CtxUsers).(*map[int]*model.User)
+func usersFromContext(ctx context.Context) (model.UsersMap, error) {
+	users, ok := ctx.Value(util.CtxUsers).(model.UsersMap)
 	if !ok || users == nil {
-		log.Println(ok, users)
+		log.Println(users)
 		return nil, fmt.Errorf("cannot find users")
 	}
 
